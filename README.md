@@ -10,8 +10,7 @@ chart of their ancestry components with a color-swatch legend — in English
 or Latvian.
 
 > For the full narrative writeup (design rationale, verified script
-> internals, example reports) see `Latvian_Ancestry_Pipeline.docx` alongside
-> this README. This file is the condensed, run-it version.
+> internals, example reports) see `Latvian_Ancestry_Pipeline.docx`. This file is the condensed, run-it version.
 
 ## Requirements
 
