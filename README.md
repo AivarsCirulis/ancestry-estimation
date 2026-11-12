@@ -166,3 +166,42 @@ Rscript generate_ancestry_pie_reports.R \
   otherwise. `bcftools index -t <file>.vcf.gz` fixes it; if that itself
   errors, the file is likely plain `gzip`-compressed rather than
   BGZF-compressed (check with `htsfile`) — re-compress with `bgzip` first.
+
+## Citations
+
+This pipeline builds on several external tools and reference panels. If you
+use it, please cite:
+
+- **AEon** (the ancestry-estimation tool itself) — *"AEon: A global genetic
+  ancestry estimation tool"* (2024), bioRxiv,
+  https://www.biorxiv.org/content/10.1101/2024.06.18.599246. Software:
+  [`aeon-ancestry`](https://pypi.org/project/aeon-ancestry/) on PyPI.
+- **1000 Genomes Project** — The 1000 Genomes Project Consortium, *"A global
+  reference for human genetic variation,"* Nature 526, 68–74 (2015).
+  doi:[10.1038/nature15393](https://doi.org/10.1038/nature15393).
+- **AADR (Allen Ancient DNA Resource)** — Mallick et al., *"The Allen
+  Ancient DNA Resource (AADR): a curated compendium of ancient human
+  genomes,"* Scientific Data (2024). Check the
+  [Reich Lab's AADR page](https://reich.hms.harvard.edu/allen-ancient-dna-resource-aadr-downloadable-genotypes-present-day-and-ancient-dna-data)
+  for their currently preferred citation wording before publishing.
+- **AC82** (the 82-fine-scale-population UK Biobank panel) — Lawson, Hu &
+  Myers, *"Frequency of variants in the UK Biobank for 82 fine-scale
+  populations,"* University of Bristol (2023).
+  doi:[10.5523/bris.3g5oatl682kz82as80jakjrq91](https://doi.org/10.5523/bris.3g5oatl682kz82as80jakjrq91).
+  **This dataset's own terms-of-use page states "all rights reserved" with
+  no confirmed open-redistribution license** — before publishing or sharing
+  anything derived from it (including this pipeline's merged
+  allele-frequency tables), check that dataset's actual terms directly
+  rather than assuming they permit redistribution.
+
+The Latvian reference population and the cohort itself are this project's
+own participant data, governed by its own ethics approval/consent terms —
+not included in this repository, and not covered by any of the citations
+above.
+
+## License
+
+The scripts in this repository are released under the [MIT License](LICENSE)
+(see `LICENSE`). This covers the pipeline code only — it does not grant any
+rights to the external reference panels or tools listed under
+[Citations](#citations) above, each of which has its own terms.
