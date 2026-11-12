@@ -1,0 +1,41 @@
+#!/bin/bash
+#PBS -N aeon_new_sample
+#PBS -q batch
+#PBS -l select=1:ncpus=1:mem=4gb
+#PBS -l walltime=1:00:00
+#PBS -j oe
+#PBS -o aeon_new_sample.log
+###############################################################################
+# Classify ONE new sample (not part of the 2191-person cohort VCF) against
+# the existing, unchanged 224-population reference. The reference files
+# (AF / LABELS below) are read-only inputs here -- this does not add the
+# new sample to them, rebuild them, or touch the cohort's own output files
+# in any way. Resources are deliberately small -- a single sample is a
+# tiny fraction of the full cohort's memory/CPU footprint; raise
+# mem/walltime only if aeon actually complains.
+###############################################################################
+set -euo pipefail
+
+cd "$PBS_O_WORKDIR" || cd /mnt/beegfs2/home/aivars03/RG/ancestry/ac82_for_aeon
+
+echo "[$(date)] Job started on $(hostname)"
+
+set +u
+source ~/.bashrc
+set -u
+mamba activate aeon-ancestry
+
+VCF="path/to/sample.vcf.gz"      # <-- EDIT: the one new sample's VCF
+AF="aeon_reference_final_allele_freqs.tsv.gz"
+LABELS="aeon_reference_final_population_labels.tsv"
+OUT_PREFIX="new_sample_ancestry"          # <-- EDIT: distinct per new sample, so repeat runs don't overwrite each other
+
+echo "[$(date)] Running aeon..."
+aeon "$VCF" \
+    -a "$AF" \
+    --population_labels "$LABELS" \
+    -o "$OUT_PREFIX" \
+    --no_visualisation
+
+echo "[$(date)] Job finished."
+ls -la "${OUT_PREFIX}"*

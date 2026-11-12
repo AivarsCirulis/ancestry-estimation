@@ -1,0 +1,107 @@
+#!/bin/bash
+#PBS -N aeon_latvia_batched
+#PBS -q batch
+#PBS -l select=1:ncpus=4:mem=16gb
+#PBS -l walltime=24:00:00
+#PBS -j oe
+#PBS -o aeon_latvia_batched.log
+###############################################################################
+# Run aeon ancestry estimation on the Latvia cohort in BATCHES of samples
+# instead of all 2191 at once -- aeon's genotype-extraction code
+# (genotype_from_vcf.py) builds a Python-object structure sized
+# n_samples x n_loci with no vectorization, which scales badly enough that
+# the full cohort gets OOM-killed even at 32GB against the already
+# loci-subsetted VCF. Since each sample's ancestry estimate doesn't depend
+# on which other samples share its query VCF, running in batches and
+# merging the per-batch _ae.csv outputs afterward (merge_batch_ancestry_
+# results.py) is mathematically identical to one big run.
+#
+# BEFORE SUBMITTING:
+#   1. Run split_samples_into_batches.sh first to create the batch VCFs:
+#        ./split_samples_into_batches.sh \
+#            latvia_2K_cohort.subset_reference_loci.vcf.gz \
+#            200 \
+#            batches
+#      (200 samples/batch is a starting guess -- comfortably smaller than
+#      the 2191 that OOM'd at 32GB. If a 200-sample batch still gets
+#      killed at the 16GB requested below, halve the batch size and/or
+#      raise -l mem; if 200 comfortably succeeds well under 16GB, feel
+#      free to raise the batch size to cut down the number of batches and
+#      the repeated per-batch fixed cost of the 36,188 vcf.fetch() calls.)
+#   2. Adjust -q (queue name) and the resource line for your cluster.
+#
+# This script processes ALL batch_*.vcf.gz files found in ./batches
+# SEQUENTIALLY within one job. If your Torque setup supports job arrays
+# (check with `man qsub` for -t/-J support) you can instead submit one
+# array task per batch for parallelism -- see the commented-out
+# alternative at the bottom of this file.
+###############################################################################
+set -euo pipefail
+
+cd "$PBS_O_WORKDIR" || cd /mnt/beegfs2/home/aivars03/RG/ancestry/ac82_for_aeon
+
+echo "[$(date)] Job started on $(hostname)"
+
+set +u
+source ~/.bashrc
+set -u
+mamba activate aeon-ancestry
+
+AF="aeon_reference_final_allele_freqs.tsv.gz"
+LABELS="aeon_reference_final_population_labels.tsv"
+BATCH_DIR="batches"
+OUT_DIR="batch_results"
+mkdir -p "$OUT_DIR"
+
+shopt -s nullglob
+BATCHES=("$BATCH_DIR"/batch_*.vcf.gz)
+if [[ ${#BATCHES[@]} -eq 0 ]]; then
+    echo "FATAL: no batch_*.vcf.gz files found in $BATCH_DIR -- run split_samples_into_batches.sh first." >&2
+    exit 1
+fi
+echo "[$(date)] Found ${#BATCHES[@]} batch(es)."
+
+i=0
+for BATCH_VCF in "${BATCHES[@]}"; do
+    i=$((i + 1))
+    BATCH_NAME=$(basename "$BATCH_VCF" .vcf.gz)
+    OUT_PREFIX="$OUT_DIR/${BATCH_NAME}_ancestry"
+
+    if [[ -s "${OUT_PREFIX}_ae.csv" ]]; then
+        echo "[$(date)] [$i/${#BATCHES[@]}] reuse ${OUT_PREFIX}_ae.csv"
+        continue
+    fi
+
+    echo "[$(date)] [$i/${#BATCHES[@]}] Running aeon on $BATCH_VCF ..."
+    aeon "$BATCH_VCF" \
+        -a "$AF" \
+        --population_labels "$LABELS" \
+        -o "$OUT_PREFIX" \
+        --no_visualisation
+    echo "[$(date)] [$i/${#BATCHES[@]}] done -> ${OUT_PREFIX}_ae.csv"
+done
+
+echo "[$(date)] All batches finished. Merging results..."
+python merge_batch_ancestry_results.py \
+    --ae-glob "${OUT_DIR}/batch_*_ancestry_ae.csv" \
+    --stats-glob "${OUT_DIR}/batch_*_ancestry_ae_stats.csv" \
+    --out-prefix latvia_full_cohort_ancestry
+
+echo "[$(date)] Job finished."
+ls -la latvia_full_cohort_ancestry*
+
+###############################################################################
+# ALTERNATIVE: if your Torque setup supports job arrays (parallel instead
+# of sequential -- much faster wall-clock for many batches), replace the
+# "for BATCH_VCF in ..." loop above with something like:
+#
+#   #PBS -t 1-11    (add near the top, matching your actual batch count)
+#   BATCH_VCF=$(ls batches/batch_*.vcf.gz | sed -n "${PBS_ARRAYID}p")
+#   ... run aeon once on that single $BATCH_VCF ...
+#
+# then run merge_batch_ancestry_results.py as a separate, second job
+# submitted after all array tasks complete (or manually once you confirm
+# they're all done). Test with a small array (e.g. -t 1-2) first to
+# confirm your scheduler's array-job variable name (PBS_ARRAYID vs
+# PBS_ARRAY_INDEX) before relying on it for the full batch count.
+###############################################################################

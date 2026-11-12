@@ -1,0 +1,167 @@
+#!/bin/bash
+#PBS -q long
+#PBS -A *account*
+#PBS -M *email*
+#PBS -N ac82_for_aeon
+#PBS -m abe
+#PBS -j oe
+#PBS -l walltime=48:00:00
+#PBS -l nodes=1:ppn=8,pmem=6gb
+#PBS -l feature=largescratch
+
+###############################################################################
+# Build a custom AC82 (82-population) allele-frequency reference for aeon,
+# so aeon's ancestry-fraction model can be run against UKB's 82 fine-scale
+# populations instead of its built-in 26-population 1000 Genomes default.
+#
+# Pipeline (mirrors the AADR liftover job you already ran successfully):
+#   [1] Convert the 50 raw AC82 GRCh37 tab.gz parts -> one sites-only GRCh37 VCF,
+#       packing each population's AF as its own INFO tag (script: ac82_to_vcf37.py)
+#   [2] Sort + index that GRCh37 VCF
+#   [3] Picard LiftoverVcf GRCh37 -> GRCh38 (same chain/REF you used for AADR)
+#   [4] Sort + index the lifted VCF
+#   [5] Extract aeon's exact -a format (CHROM START STOP VAR_ID POP1...POP82),
+#       correcting any Picard-flagged SwappedAlleles loci by flipping AF -> 1-AF
+#       (script: extract_ac82_af_for_aeon.py), and emit a DRAFT population
+#       labels file for you to review before use.
+#
+# All steps have resume guards -- delete an output file to force regeneration.
+###############################################################################
+
+set -euo pipefail
+
+###############################################################################
+# [0] ENVIRONMENT
+###############################################################################
+module load anaconda/conda-4.13.0
+source "$(conda info --base)/etc/profile.d/conda.sh" 2>/dev/null || true
+
+ENV="/mnt/beegfs2/home/aivars03/.conda/envs/aadr_pca"
+source activate "$ENV" 2>/dev/null || conda activate "$ENV" || true
+export PATH="$ENV/bin:$PATH"
+hash -r
+
+BCFTOOLS="${BCFTOOLS:-bcftools}"
+TABIX="${TABIX:-tabix}"
+BGZIP="${BGZIP:-bgzip}"
+
+log() { printf "[%(%F %T)T] %s\n" -1 "$*"; }
+ok()  { [[ -s "$1" ]]; }
+
+###############################################################################
+# [1] CONFIG -- reusing paths from your existing pipeline
+###############################################################################
+SCRIPT_DIR="/mnt/beegfs2/home/aivars03/RG/ancestry/ac82_for_aeon"   # <-- put the two .py scripts here
+AC82_DIR="/mnt/beegfs2/home/aivars03/RG/old-ref/UKB_AC82_filter_out/UKB_unzipped/3g5oatl682kz82as80jakjrq91/AC82"
+
+REF38="/mnt/beegfs2/home/groups/bmc/common/db/ref/igenomes/Homo_sapiens/GATK/GRCh38/Sequence/WholeGenomeFasta/Homo_sapiens_assembly38.fasta"
+
+# Try the copy already proven to work in the AADR job first, then the
+# ref/chain download-checklist location, in that order.
+CHAIN_CANDIDATES=(
+  "/mnt/beegfs2/home/aivars03/RG/ancestry/AADR/resources/hg19ToHg38.over.chain.gz"
+  "/mnt/beegfs2/home/aivars03/ref/chain/hg19ToHg38.over.chain.gz"
+)
+CHAIN_37_TO_38=""
+for c in "${CHAIN_CANDIDATES[@]}"; do
+  if [[ -s "$c" ]]; then
+    CHAIN_37_TO_38="$c"
+    break
+  fi
+done
+if [[ -z "$CHAIN_37_TO_38" ]]; then
+  echo "FATAL: hg19ToHg38.over.chain.gz not found in any of:"
+  printf '  %s\n' "${CHAIN_CANDIDATES[@]}"
+  echo "Download it with:"
+  echo "  wget -q -c -O ${CHAIN_CANDIDATES[1]} https://hgdownload.cse.ucsc.edu/gbdb/hg19/liftOver/hg19ToHg38.over.chain.gz"
+  exit 1
+fi
+
+OUTDIR="/mnt/beegfs2/home/aivars03/RG/ancestry/ac82_for_aeon"
+mkdir -p "$OUTDIR"
+cd "$OUTDIR"
+
+VCF37="$OUTDIR/ac82.hg19.vcf.gz"
+VCF38_RAW="$OUTDIR/ac82.hg38.raw.unsorted.vcf.gz"
+REJECT="$OUTDIR/ac82.hg38.reject.vcf.gz"
+VCF38="$OUTDIR/ac82.hg38.sorted.vcf.gz"
+
+AEON_AF_PREFIX="$OUTDIR/ac82_allele_freqs_hg38"
+AEON_AF_TABLE="${AEON_AF_PREFIX}.tsv.gz"
+
+PICARD_XMX="${PICARD_XMX:-32g}"
+SORT_MEM="${SORT_MEM:-4G}"
+WORKDIR="/scratch/${USER}/ac82_aeon_${PBS_JOBID:-manual}"
+mkdir -p "$WORKDIR"
+trap 'rm -rf "$WORKDIR"' EXIT
+
+for f in "$AC82_DIR/AC82_AF_split_part1.tab.gz" "$REF38" "$CHAIN_37_TO_38"; do
+  [[ -s "$f" ]] || { echo "FATAL: missing required input: $f"; exit 1; }
+done
+
+###############################################################################
+# [1] AC82 GRCh37 tab.gz parts -> sites-only GRCh37 VCF
+###############################################################################
+if ok "$VCF37"; then
+  log "[1] reuse $VCF37"
+else
+  log "[1] converting 50 AC82 parts -> GRCh37 VCF (this reads ~25M rows, be patient)"
+  python "$SCRIPT_DIR/ac82_to_vcf37.py" "$AC82_DIR" \
+    | $BCFTOOLS sort -Oz -m "$SORT_MEM" -T "$WORKDIR" -o "$VCF37" -
+  $TABIX -f -p vcf "$VCF37"
+  log "[1] counts:"
+  $BCFTOOLS +counts "$VCF37" || true
+fi
+
+###############################################################################
+# [2] Liftover GRCh37 -> GRCh38
+###############################################################################
+if ok "$VCF38_RAW"; then
+  log "[2] reuse $VCF38_RAW"
+else
+  log "[2] Picard LiftoverVcf (heap=$PICARD_XMX)..."
+  picard -Xmx"$PICARD_XMX" LiftoverVcf \
+    I="$VCF37" \
+    O="$VCF38_RAW" \
+    CHAIN="$CHAIN_37_TO_38" \
+    REJECT="$REJECT" \
+    R="$REF38" \
+    WARN_ON_MISSING_CONTIG=true \
+    RECOVER_SWAPPED_REF_ALT=true \
+    DISABLE_SORT=true \
+    TMP_DIR="$WORKDIR" \
+    MAX_RECORDS_IN_RAM=100000 \
+    COMPRESSION_LEVEL=1
+fi
+
+###############################################################################
+# [3] Sort + index the lifted VCF
+###############################################################################
+if ok "$VCF38"; then
+  log "[3] reuse $VCF38"
+else
+  log "[3] sorting lifted VCF..."
+  $BCFTOOLS sort -Oz -m "$SORT_MEM" -T "$WORKDIR" -o "$VCF38" "$VCF38_RAW"
+  $TABIX -f -p vcf "$VCF38"
+  log "[3] counts (lifted, GRCh38):"
+  $BCFTOOLS +counts "$VCF38" || true
+  log "[3] rejected during liftover:"
+  $BCFTOOLS +counts "$REJECT" 2>/dev/null || echo "(no reject counts available)"
+fi
+
+###############################################################################
+# [4] Extract aeon's -a format + draft population labels
+###############################################################################
+if ok "$AEON_AF_TABLE"; then
+  log "[4] reuse $AEON_AF_TABLE"
+else
+  log "[4] extracting aeon allele-freq table + draft population labels..."
+  python "$SCRIPT_DIR/extract_ac82_af_for_aeon.py" "$VCF38" "$AEON_AF_PREFIX"
+fi
+
+log "[DONE] Outputs:"
+log "  GRCh37 sites VCF:            $VCF37"
+log "  GRCh38 lifted VCF (sorted):  $VCF38"
+log "  rejected-in-liftover VCF:    $REJECT"
+log "  aeon allele-freq table:      $AEON_AF_TABLE"
+log "  DRAFT population labels:     $OUTDIR/ac82_population_labels.DRAFT.tsv  <-- REVIEW BEFORE USE"
