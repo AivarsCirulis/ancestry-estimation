@@ -199,6 +199,22 @@ own participant data, governed by its own ethics approval/consent terms —
 not included in this repository, and not covered by any of the citations
 above.
 
+## Citing this repository
+
+If you use this pipeline itself (as opposed to, or in addition to, the
+external tools and reference panels cited above), please cite:
+
+> Cīrulis, A. (2026). *Ancestry Estimation Pipeline for a Latvian Cohort*
+> [Computer software]. NIRI. https://github.com/AivarsCirulis/ancestry-estimation
+
+A machine-readable [`CITATION.cff`](CITATION.cff) is included at the repo
+root — GitHub picks this up automatically and shows a "Cite this
+repository" button in the sidebar with ready-made APA/BibTeX citations, no
+further setup needed. If you'd like a permanent, version-specific DOI
+instead of a repo-URL citation (recommended once this is cited in a paper),
+link the repo to [Zenodo](https://zenodo.org) — it's a free GitHub login,
+and every tagged release then gets its own archived DOI automatically.
+
 ## License
 
 The scripts in this repository are released under the [MIT License](LICENSE)
