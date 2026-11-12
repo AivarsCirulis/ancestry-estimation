@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "Ancestry Estimation Pipeline for a Latvian Cohort"
+abstract: >-
+  Ancestry estimation pipeline for a Latvian cohort, built on AEon against a
+  custom 224-population reference merged from the 1000 Genomes Project, a
+  UK Biobank-derived 82-fine-scale-population panel (AC82), and the Allen
+  Ancient DNA Resource (AADR), producing per-participant PDF ancestry
+  reports in English or Latvian.
+authors:
+  - family-names: "Cīrulis"
+    given-names: "Aivars"
+    affiliation: "NIRI"
+repository-code: "https://github.com/AivarsCirulis/ancestry-estimation"
+url: "https://github.com/AivarsCirulis/ancestry-estimation"
+license: MIT
