@@ -48,11 +48,6 @@ generate_ancestry_pie_reports.R, population_names_lv.csv     } Stage G — PDF r
 run_new_sample_aeon.pbs                                       } Stage H — add one new sample
 ```
 
-`run_full_cohort_aeon.pbs` / `run_full_cohort_aeon_1.pbs` also exist in the
-project directory but **don't work** — see [Gotchas](#gotchas) below.
-`explore_ancestry_pie.R` is an RStudio-only design-prototyping script, not
-part of the reproducible pipeline; it isn't included here.
-
 ## Quickstart
 
 ### Part 1 — Build the reference (one-time)
