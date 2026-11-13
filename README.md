@@ -172,21 +172,26 @@ Rscript generate_ancestry_pie_reports.R \
 This pipeline builds on several external tools and reference panels. If you
 use it, please cite:
 
-- **AEon** (the ancestry-estimation tool itself) — *"AEon: A global genetic
-  ancestry estimation tool"* (2024), bioRxiv,
-  https://www.biorxiv.org/content/10.1101/2024.06.18.599246. Software:
-  [`aeon-ancestry`](https://pypi.org/project/aeon-ancestry/) on PyPI.
-- **1000 Genomes Project** — The 1000 Genomes Project Consortium, *"A global
-  reference for human genetic variation,"* Nature 526, 68–74 (2015).
+- **AEon** (the ancestry-estimation tool itself) — Warren, N. (2024).
+  *"AEon: A global genetic ancestry estimation tool."* bioRxiv.
+  doi:[10.1101/2024.06.18.599246](https://doi.org/10.1101/2024.06.18.599246).
+  Software: [`aeon-ancestry`](https://pypi.org/project/aeon-ancestry/) on PyPI.
+- **1000 Genomes Project** — The 1000 Genomes Project Consortium. (2015).
+  *"A global reference for human genetic variation."* Nature, 526, 68–74.
   doi:[10.1038/nature15393](https://doi.org/10.1038/nature15393).
-- **AADR (Allen Ancient DNA Resource)** — Mallick et al., *"The Allen
-  Ancient DNA Resource (AADR): a curated compendium of ancient human
-  genomes,"* Scientific Data (2024). Check the
-  [Reich Lab's AADR page](https://reich.hms.harvard.edu/allen-ancient-dna-resource-aadr-downloadable-genotypes-present-day-and-ancient-dna-data)
-  for their currently preferred citation wording before publishing.
-- **AC82** (the 82-fine-scale-population UK Biobank panel) — Lawson, Hu &
-  Myers, *"Frequency of variants in the UK Biobank for 82 fine-scale
-  populations,"* University of Bristol (2023).
+- **AADR (Allen Ancient DNA Resource)** — Mallick, S., Micco, A., Mah, M.,
+  Ringbauer, H., Lazaridis, I., Olalde, I., Patterson, N., & Reich, D.
+  (2024). *"The Allen Ancient DNA Resource (AADR): a curated compendium of
+  ancient human genomes."* Scientific Data, 11(1), 182.
+  doi:[10.1038/s41597-024-03031-7](https://doi.org/10.1038/s41597-024-03031-7).
+  The [Reich Lab's AADR page](https://reich.hms.harvard.edu/allen-ancient-dna-resource-aadr-downloadable-genotypes-present-day-and-ancient-dna-data)
+  is worth checking directly before publishing in case they also ask for a
+  specific AADR version number, or citation of the underlying per-sample
+  studies for any individual ancient genomes you rely on heavily — that
+  level of detail wasn't confirmable from here.
+- **AC82** (the 82-fine-scale-population UK Biobank panel) — Lawson, D. J.,
+  Hu, S., & Myers, S. (2023). *"Frequency of variants in the UK Biobank for
+  82 fine-scale populations."* University of Bristol.
   doi:[10.5523/bris.3g5oatl682kz82as80jakjrq91](https://doi.org/10.5523/bris.3g5oatl682kz82as80jakjrq91).
   **This dataset's own terms-of-use page states "all rights reserved" with
   no confirmed open-redistribution license** — before publishing or sharing
